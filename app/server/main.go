@@ -5,6 +5,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"strings"
 )
 
 func StartServerOn(port string) net.Listener {
@@ -38,26 +39,74 @@ func handleConnection(conn net.Conn) {
 	defer conn.Close()
 
 	for {
-		request := make([]byte, 1024)
-		reqBytes, err := conn.Read(request)
+		rawRequest := make([]byte, 1024)
+		bytes, err := conn.Read(rawRequest)
+
 		if err == io.EOF {
 			break
 		}
+
 		if err != nil {
 			fmt.Println("Error reading data from the conn: ", err.Error())
 			return
 		}
 
-		fmt.Printf("Reques received with %d bytes\n\n", reqBytes)
-		fmt.Println(string(request[:reqBytes]))
+		request := ParseHTTPRequest(rawRequest, bytes)
 
-    response := []byte("HTTP/1.1 200 OK\r\n\r\n")
-		bytes, err := conn.Write(response)
+		var response []byte
+
+		if request.path == "/" {
+      response = SuccessResponse()
+		} else {
+      response = NotFoundResponse()
+    }
+
+    bytes, err = conn.Write(response)
+
 		if err != nil {
 			fmt.Println("Error sending data to the connection: ", err.Error())
 			return
 		}
 
 		fmt.Printf("Send %v bytes\n", bytes)
+	}
+}
+
+type METHOD string
+
+const (
+	GET  METHOD = "GET"
+	POST METHOD = "POST"
+)
+
+type Request struct {
+	method  METHOD
+	path    string
+	version string
+}
+
+func SuccessResponse() []byte {
+	return []byte("HTTP/1.1 200 OK\r\n\r\n")
+}
+
+func NotFoundResponse() []byte {
+	return []byte("HTTP/1.1 404 Not Found\r\n\r\n")
+}
+
+func ParseHTTPRequest(request []byte, requestBytes int) Request {
+	stringRequest := string(request[:requestBytes])
+
+	fmt.Printf("Request received with %d bytes\n\n", requestBytes)
+	fmt.Println(stringRequest)
+
+	lines := strings.Split(stringRequest, "\r\n")
+
+	startLine := strings.Fields(lines[0])
+	method, path, version := startLine[0], startLine[1], startLine[2]
+
+	return Request{
+		method:  METHOD(method),
+		path:    path,
+		version: version,
 	}
 }
