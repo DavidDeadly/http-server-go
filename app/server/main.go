@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"os"
 )
@@ -20,7 +21,7 @@ func StartServerOn(port string) net.Listener {
 
 func ListenForConnections(listener net.Listener) net.Conn {
 	for {
-		_, err := listener.Accept()
+		connection, err := listener.Accept()
 		if err != nil {
 			fmt.Println(err, "Error accepting connection")
 			os.Exit(1)
@@ -28,6 +29,35 @@ func ListenForConnections(listener net.Listener) net.Conn {
 
 		fmt.Println("\nNew connection")
 
-		// go handleConnection(connection)
+		go handleConnection(connection)
+	}
+}
+
+func handleConnection(conn net.Conn) {
+	fmt.Println("Handling...")
+	defer conn.Close()
+
+	for {
+		request := make([]byte, 1024)
+		reqBytes, err := conn.Read(request)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			fmt.Println("Error reading data from the conn: ", err.Error())
+			return
+		}
+
+		fmt.Printf("Reques received with %d bytes\n\n", reqBytes)
+		fmt.Println(string(request[:reqBytes]))
+
+    response := []byte("HTTP/1.1 200 OK\r\n\r\n")
+		bytes, err := conn.Write(response)
+		if err != nil {
+			fmt.Println("Error sending data to the connection: ", err.Error())
+			return
+		}
+
+		fmt.Printf("Send %v bytes\n", bytes)
 	}
 }
