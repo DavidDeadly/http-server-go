@@ -5,6 +5,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"regexp"
 	"strings"
 )
 
@@ -55,10 +56,21 @@ func handleConnection(conn net.Conn) {
 
 		var response []byte
 
-		if request.path == "/" {
-      response = SuccessResponse()
-		} else {
+    
+
+    switch {
+
+    case request.path == "/":
+      response = SuccessResponse(nil)
+
+    case regexp.MustCompile("/echo/*").MatchString(request.path):
+      string := strings.Replace(request.path, "/echo/", "", 1)
+
+      response = SuccessResponse(&string)
+
+    default:
       response = NotFoundResponse()
+      
     }
 
     bytes, err = conn.Write(response)
@@ -85,8 +97,19 @@ type Request struct {
 	version string
 }
 
-func SuccessResponse() []byte {
-	return []byte("HTTP/1.1 200 OK\r\n\r\n")
+func SuccessResponse(body *string) []byte {
+  response := "HTTP/1.1 200 OK\r\n"
+
+  if body != nil {
+    response += "Content-Type: text/plain\r\n"
+    response += fmt.Sprintf("Content-Length: %d\r\n", len(*body))
+    response += fmt.Sprintf("\r\n%s", *body)
+  }
+
+  response += "\r\n"
+
+  fmt.Println(response)
+	return []byte(response)
 }
 
 func NotFoundResponse() []byte {
