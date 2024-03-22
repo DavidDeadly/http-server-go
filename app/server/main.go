@@ -35,6 +35,12 @@ func ListenForConnections(listener net.Listener) net.Conn {
 	}
 }
 
+const (
+  OK = 200
+  NOT_FOUND = 404
+  BAD_REQUEST = 400
+)
+
 func handleConnection(conn net.Conn) {
 	fmt.Println("Handling...")
 	defer conn.Close()
@@ -56,25 +62,32 @@ func handleConnection(conn net.Conn) {
 
 		var response []byte
 
-    
+		switch {
 
-    switch {
+		case request.path == "/":
 
-    case request.path == "/":
-      response = SuccessResponse(nil)
+			response = Response(nil, OK)
 
-    case regexp.MustCompile("/echo/*").MatchString(request.path):
-      string := strings.Replace(request.path, "/echo/", "", 1)
+		case regexp.MustCompile("/echo/*").MatchString(request.path):
+			string := strings.Replace(request.path, "/echo/", "", 1)
 
-      response = SuccessResponse(&string)
+			response = Response(&string, OK)
 
-    default:
-      response = NotFoundResponse()
-      
-    }
+		case request.path == "/user-agent":
+      userAgent , ok := request.headers["User-Agent"]
 
-    bytes, err = conn.Write(response)
+      if !ok {
+        response = Response(nil, BAD_REQUEST)
+      }
 
+			response = Response(&userAgent, OK)
+
+		default:
+			response = NotFoundResponse()
+
+		}
+
+		bytes, err = conn.Write(response)
 		if err != nil {
 			fmt.Println("Error sending data to the connection: ", err.Error())
 			return
@@ -94,26 +107,29 @@ const (
 type Request struct {
 	method  METHOD
 	path    string
+	headers map[string]string
 	version string
 }
 
-func SuccessResponse(body *string) []byte {
-  response := "HTTP/1.1 200 OK\r\n"
+func Response(body *string, code uint16) []byte {
+	response := fmt.Sprintf("HTTP/1.1 %d OK\r\n", code)
 
-  if body != nil {
-    response += "Content-Type: text/plain\r\n"
-    response += fmt.Sprintf("Content-Length: %d\r\n", len(*body))
-    response += fmt.Sprintf("\r\n%s", *body)
-  }
+	if body != nil {
+		response += "Content-Type: text/plain\r\n"
+		response += fmt.Sprintf("Content-Length: %d\r\n", len(*body))
+		response += fmt.Sprintf("\r\n%s", *body)
+	}
 
-  response += "\r\n"
+	response += "\r\n"
 
-  fmt.Println(response)
+	fmt.Println(response)
 	return []byte(response)
 }
 
 func NotFoundResponse() []byte {
-	return []byte("HTTP/1.1 404 Not Found\r\n\r\n")
+	response := fmt.Sprintf("HTTP/1.1 %d Not Found\r\n\r\n", NOT_FOUND)
+
+	return []byte(response)
 }
 
 func ParseHTTPRequest(request []byte, requestBytes int) Request {
@@ -122,14 +138,27 @@ func ParseHTTPRequest(request []byte, requestBytes int) Request {
 	fmt.Printf("Request received with %d bytes\n\n", requestBytes)
 	fmt.Println(stringRequest)
 
+  var method string
+  var headers = map[string]string{}
+
 	lines := strings.Split(stringRequest, "\r\n")
 
 	startLine := strings.Fields(lines[0])
 	method, path, version := startLine[0], startLine[1], startLine[2]
 
+  for _, header := range lines[1:] {
+    if header == "" { break }
+
+    data := strings.Split(header, ": ")
+    key, value := data[0], data[1]
+
+    headers[key] = value
+  }
+
 	return Request{
 		method:  METHOD(method),
 		path:    path,
 		version: version,
+    headers: headers,
 	}
 }
