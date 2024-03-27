@@ -39,6 +39,7 @@ func ListenForConnections(listener net.Listener) net.Conn {
 
 const (
 	OK          = 200
+	CREATED     = 201
 	NOT_FOUND   = 404
 	BAD_REQUEST = 400
 )
@@ -52,7 +53,7 @@ func handleConnection(conn net.Conn) {
 	bytes, err := conn.Read(rawRequest)
 
 	if err == io.EOF {
-    return
+		return
 	}
 
 	if err != nil {
@@ -81,23 +82,35 @@ func handleConnection(conn net.Conn) {
 		if !ok {
 			response = Response(nil, BAD_REQUEST, nil)
 		} else {
-      response = Response(&userAgent, OK, nil)
-    }
+			response = Response(&userAgent, OK, nil)
+		}
 
 	case regexp.MustCompile("/files/*").MatchString(request.path):
 		fileName := strings.Replace(request.path, "/files/", "", 1)
-
 		filePath := fmt.Sprintf("%s/%s", config.CONFIG[config.DIR], fileName)
 
-		fmt.Println("Reading... ", filePath)
-		data, err := os.ReadFile(filePath)
-		if err == nil {
-      body := string(data[0:])
-      contentType := "application/octet-stream"
-      response = Response(&body, OK, &contentType)
-		} else {
-			response = NotFoundResponse()
-    }
+		switch {
+		case request.method == GET:
+			fmt.Println("Reading... ", filePath)
+
+			data, err := os.ReadFile(filePath)
+
+			if err == nil {
+				body := string(data[0:])
+				contentType := "application/octet-stream"
+				response = Response(&body, OK, &contentType)
+			} else {
+				response = NotFoundResponse()
+			}
+		case request.method == POST:
+			err := os.WriteFile(filePath, []byte(request.body), 0644)
+
+			if err == nil {
+        fmt.Printf("Error writing the file '%s' with: %s", fileName, request.body)
+			}
+
+      response = Response(nil, CREATED, nil)
+		}
 
 	default:
 		response = NotFoundResponse()
@@ -124,6 +137,7 @@ type Request struct {
 	path    string
 	headers map[string]string
 	version string
+	body    string
 }
 
 func Response(body *string, code uint16, contentType *string) []byte {
@@ -166,6 +180,7 @@ func ParseHTTPRequest(request []byte, requestBytes int) Request {
 	startLine := strings.Fields(lines[0])
 	method, path, version := startLine[0], startLine[1], startLine[2]
 
+	var i int
 	for _, header := range lines[1:] {
 		if header == "" {
 			break
@@ -175,12 +190,16 @@ func ParseHTTPRequest(request []byte, requestBytes int) Request {
 		key, value := data[0], data[1]
 
 		headers[key] = value
+		i++
 	}
+
+	body := strings.Join(lines[i+2:], "\r\n")
 
 	return Request{
 		method:  METHOD(method),
 		path:    path,
 		version: version,
 		headers: headers,
+		body:    body,
 	}
 }
