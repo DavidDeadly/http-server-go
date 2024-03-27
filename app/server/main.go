@@ -45,76 +45,71 @@ const (
 
 func handleConnection(conn net.Conn) {
 	fmt.Println("Handling...")
+
 	defer conn.Close()
 
-	for {
-		rawRequest := make([]byte, 1024)
-		bytes, err := conn.Read(rawRequest)
+	rawRequest := make([]byte, 1024)
+	bytes, err := conn.Read(rawRequest)
 
-		if err == io.EOF {
-			break
-		}
+	if err == io.EOF {
+    return
+	}
 
-		if err != nil {
-			fmt.Println("Error reading data from the conn: ", err.Error())
-			return
-		}
+	if err != nil {
+		fmt.Println("Error reading data from the conn: ", err.Error())
+		return
+	}
 
-		request := ParseHTTPRequest(rawRequest, bytes)
+	request := ParseHTTPRequest(rawRequest, bytes)
 
-		var response []byte
+	var response []byte
 
-		switch {
+	switch {
 
-		case request.path == "/":
+	case request.path == "/":
 
-			response = Response(nil, OK, nil)
+		response = Response(nil, OK, nil)
 
-		case regexp.MustCompile("/echo/*").MatchString(request.path):
-			string := strings.Replace(request.path, "/echo/", "", 1)
+	case regexp.MustCompile("/echo/*").MatchString(request.path):
+		string := strings.Replace(request.path, "/echo/", "", 1)
 
-			response = Response(&string, OK, nil)
+		response = Response(&string, OK, nil)
 
-		case request.path == "/user-agent":
-			userAgent, ok := request.headers["User-Agent"]
+	case request.path == "/user-agent":
+		userAgent, ok := request.headers["User-Agent"]
 
-			if !ok {
-				response = Response(nil, BAD_REQUEST, nil)
-        break
-			}
+		if !ok {
+			response = Response(nil, BAD_REQUEST, nil)
+		} else {
+      response = Response(&userAgent, OK, nil)
+    }
 
-			response = Response(&userAgent, OK, nil)
+	case regexp.MustCompile("/files/*").MatchString(request.path):
+		fileName := strings.Replace(request.path, "/files/", "", 1)
 
-		case regexp.MustCompile("/files/*").MatchString(request.path):
-			fileName := strings.Replace(request.path, "/files/", "", 1)
+		filePath := fmt.Sprintf("%s/%s", config.CONFIG[config.DIR], fileName)
 
-      filePath := fmt.Sprintf("%s/%s", config.CONFIG[config.DIR], fileName)
-
-      fmt.Println("Reading... ", filePath)
-      data, err := os.ReadFile(filePath)
-
-      if err != nil {
-        response = NotFoundResponse()
-        break
-      }
-
+		fmt.Println("Reading... ", filePath)
+		data, err := os.ReadFile(filePath)
+		if err == nil {
       body := string(data[0:])
       contentType := "application/octet-stream"
       response = Response(&body, OK, &contentType)
-
-		default:
+		} else {
 			response = NotFoundResponse()
+    }
 
-		}
-
-		bytes, err = conn.Write(response)
-		if err != nil {
-			fmt.Println("Error sending data to the connection: ", err.Error())
-			return
-		}
-
-		fmt.Printf("Send %v bytes\n", bytes)
+	default:
+		response = NotFoundResponse()
 	}
+
+	bytes, err = conn.Write(response)
+	if err != nil {
+		fmt.Println("Error sending data to the connection: ", err.Error())
+		return
+	}
+
+	fmt.Printf("Send %v bytes\n", bytes)
 }
 
 type METHOD string
@@ -134,11 +129,11 @@ type Request struct {
 func Response(body *string, code uint16, contentType *string) []byte {
 	response := fmt.Sprintf("HTTP/1.1 %d OK\r\n", code)
 
-  if contentType == nil {
-    content := "text/plain"
-    contentType = &content
-  }
-  
+	if contentType == nil {
+		content := "text/plain"
+		contentType = &content
+	}
+
 	if body != nil {
 		response += fmt.Sprintf("Content-Type: %s\r\n", *contentType)
 		response += fmt.Sprintf("Content-Length: %d\r\n", len(*body))
