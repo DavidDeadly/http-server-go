@@ -7,6 +7,8 @@ import (
 	"os"
 	"regexp"
 	"strings"
+
+	"github.com/codecrafters-io/http-server-starter-go/app/config"
 )
 
 func StartServerOn(port string) net.Listener {
@@ -36,9 +38,9 @@ func ListenForConnections(listener net.Listener) net.Conn {
 }
 
 const (
-  OK = 200
-  NOT_FOUND = 404
-  BAD_REQUEST = 400
+	OK          = 200
+	NOT_FOUND   = 404
+	BAD_REQUEST = 400
 )
 
 func handleConnection(conn net.Conn) {
@@ -74,13 +76,30 @@ func handleConnection(conn net.Conn) {
 			response = Response(&string, OK)
 
 		case request.path == "/user-agent":
-      userAgent , ok := request.headers["User-Agent"]
+			userAgent, ok := request.headers["User-Agent"]
 
-      if !ok {
-        response = Response(nil, BAD_REQUEST)
-      }
+			if !ok {
+				response = Response(nil, BAD_REQUEST)
+        break
+			}
 
 			response = Response(&userAgent, OK)
+
+		case regexp.MustCompile("/files/*").MatchString(request.path):
+			fileName := strings.Replace(request.path, "/files/", "", 1)
+
+      filePath := fmt.Sprintf("%s/%s", config.CONFIG[config.DIR], fileName)
+
+      fmt.Println("Reading... ", filePath)
+      data, err := os.ReadFile(filePath)
+
+      if err != nil {
+        response = NotFoundResponse()
+        break
+      }
+
+      body := string(data[0:])
+      response = Response(&body, OK)
 
 		default:
 			response = NotFoundResponse()
@@ -138,27 +157,29 @@ func ParseHTTPRequest(request []byte, requestBytes int) Request {
 	fmt.Printf("Request received with %d bytes\n\n", requestBytes)
 	fmt.Println(stringRequest)
 
-  var method string
-  var headers = map[string]string{}
+	var method string
+	headers := map[string]string{}
 
 	lines := strings.Split(stringRequest, "\r\n")
 
 	startLine := strings.Fields(lines[0])
 	method, path, version := startLine[0], startLine[1], startLine[2]
 
-  for _, header := range lines[1:] {
-    if header == "" { break }
+	for _, header := range lines[1:] {
+		if header == "" {
+			break
+		}
 
-    data := strings.Split(header, ": ")
-    key, value := data[0], data[1]
+		data := strings.Split(header, ": ")
+		key, value := data[0], data[1]
 
-    headers[key] = value
-  }
+		headers[key] = value
+	}
 
 	return Request{
 		method:  METHOD(method),
 		path:    path,
 		version: version,
-    headers: headers,
+		headers: headers,
 	}
 }
