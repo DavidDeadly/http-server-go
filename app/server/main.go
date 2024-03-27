@@ -135,7 +135,8 @@ func Response(body *string, code uint16, contentType *string) []byte {
 	response := fmt.Sprintf("HTTP/1.1 %d OK\r\n", code)
 
   if contentType == nil {
-    *contentType = "text/plain"
+    content := "text/plain"
+    contentType = &content
   }
   
 	if body != nil {
