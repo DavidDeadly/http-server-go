@@ -68,22 +68,22 @@ func handleConnection(conn net.Conn) {
 
 		case request.path == "/":
 
-			response = Response(nil, OK)
+			response = Response(nil, OK, nil)
 
 		case regexp.MustCompile("/echo/*").MatchString(request.path):
 			string := strings.Replace(request.path, "/echo/", "", 1)
 
-			response = Response(&string, OK)
+			response = Response(&string, OK, nil)
 
 		case request.path == "/user-agent":
 			userAgent, ok := request.headers["User-Agent"]
 
 			if !ok {
-				response = Response(nil, BAD_REQUEST)
+				response = Response(nil, BAD_REQUEST, nil)
         break
 			}
 
-			response = Response(&userAgent, OK)
+			response = Response(&userAgent, OK, nil)
 
 		case regexp.MustCompile("/files/*").MatchString(request.path):
 			fileName := strings.Replace(request.path, "/files/", "", 1)
@@ -99,7 +99,8 @@ func handleConnection(conn net.Conn) {
       }
 
       body := string(data[0:])
-      response = Response(&body, OK)
+      contentType := "application/octet-stream"
+      response = Response(&body, OK, &contentType)
 
 		default:
 			response = NotFoundResponse()
@@ -130,11 +131,15 @@ type Request struct {
 	version string
 }
 
-func Response(body *string, code uint16) []byte {
+func Response(body *string, code uint16, contentType *string) []byte {
 	response := fmt.Sprintf("HTTP/1.1 %d OK\r\n", code)
 
+  if contentType == nil {
+    *contentType = "text/plain"
+  }
+  
 	if body != nil {
-		response += "Content-Type: text/plain\r\n"
+		response += fmt.Sprintf("Content-Type: %s\r\n", *contentType)
 		response += fmt.Sprintf("Content-Length: %d\r\n", len(*body))
 		response += fmt.Sprintf("\r\n%s", *body)
 	}
