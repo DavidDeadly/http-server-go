@@ -4,11 +4,8 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"os"
 	"regexp"
-	"strings"
 
-	"github.com/codecrafters-io/http-server-starter-go/app/config"
 	"github.com/codecrafters-io/http-server-starter-go/app/utils"
 )
 
@@ -41,58 +38,22 @@ func HandleConnection(conn net.Conn) {
 		return
 	}
 
-  request := utils.ParseHTTPRequest(rawRequest, bytes)
+	request := utils.ParseHTTPRequest(rawRequest, bytes)
 
 	var response []byte
 
 	switch {
-
 	case request.Path == "/":
-
 		response = Response(nil, OK, nil)
 
 	case regexp.MustCompile("/echo/*").MatchString(request.Path):
-		string := strings.Replace(request.Path, "/echo/", "", 1)
-
-		response = Response(&string, OK, nil)
+		response = Echo(request)
 
 	case request.Path == "/user-agent":
-		userAgent, ok := request.Headers["User-Agent"]
-
-		if !ok {
-			response = Response(nil, BAD_REQUEST, nil)
-		} else {
-			response = Response(&userAgent, OK, nil)
-		}
+		response = UserAgent(request)
 
 	case regexp.MustCompile("/files/*").MatchString(request.Path):
-		fileName := strings.Replace(request.Path, "/files/", "", 1)
-		filePath := fmt.Sprintf("%s/%s", config.CONFIG[config.DIR], fileName)
-
-		switch {
-		case request.Method == GET:
-			fmt.Println("Reading... ", filePath)
-
-			data, err := os.ReadFile(filePath)
-
-			if err == nil {
-				body := string(data[0:])
-				contentType := "application/octet-stream"
-				response = Response(&body, OK, &contentType)
-			} else {
-				response = NotFoundResponse()
-			}
-		case request.Method == POST:
-			err := os.WriteFile(filePath, []byte(request.Body), 0644)
-      // TODO: add support for create files inside directories
-      fmt.Println("Writing ... ", filePath, " with: ", request.Body)
-
-			if err == nil {
-        fmt.Printf("Error writing the file '%s' with: %s", fileName, request.Body)
-			}
-
-      response = Response(nil, CREATED, nil)
-		}
+    response = Files(request)
 
 	default:
 		response = NotFoundResponse()
@@ -132,4 +93,3 @@ func NotFoundResponse() []byte {
 
 	return []byte(response)
 }
-
