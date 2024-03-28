@@ -1,6 +1,10 @@
 package config
 
-import "flag"
+import (
+	"flag"
+	"fmt"
+	"os"
+)
 
 const (
 	DIR = "dir"
@@ -11,7 +15,9 @@ var CONFIG = map[string]string{}
 func Config() {
 	var dir string
 
-	flag.StringVar(&dir, "directory", "/var/lib/redis", "Provide a directory where the endpoint files will read files")
+  homePath := os.Getenv("HOME")
+  defaultDir := fmt.Sprintf("%s/http-go-tmp", homePath)
+	flag.StringVar(&dir, "directory", defaultDir, "Provide a directory where the endpoint files will read files")
 
 	flag.Parse()
 
