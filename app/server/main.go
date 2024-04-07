@@ -23,7 +23,9 @@ func StartServerOn(port string) net.Listener {
 
 	router.Get("/echo/*", handlers.Echo)
 	router.Get("/user-agent", handlers.UserAgent)
-	router.Post("files/*", handlers.Files)
+	router.Get("/files", handlers.ReadFile)
+
+	router.Post("files/*", handlers.WriteFile)
 
 	fmt.Printf("Server running on PORT: %s\n", port)
 

@@ -9,21 +9,9 @@ import (
 	"github.com/codecrafters-io/http-server-starter-go/app/utils"
 )
 
-func Files(request *utils.Request) []byte {
+func ReadFile(request *utils.Request) []byte {
 	fileName := strings.Replace(request.Path, "/files/", "", 1)
 	filePath := fmt.Sprintf("%s/%s", config.CONFIG[config.DIR], fileName)
-
-	switch {
-  case request.Method == utils.GET:
-		return readFile(filePath)
-  case request.Method == utils.POST:
-		return writeFile(filePath, request.Body)
-	}
-
-	return []byte{}
-}
-
-func readFile(filePath string) []byte {
 	fmt.Println("Reading... ", filePath)
 
 	data, err := os.ReadFile(filePath)
@@ -37,13 +25,16 @@ func readFile(filePath string) []byte {
 	return NotFoundResponse(nil)
 }
 
-func writeFile(filePath string, content string) []byte {
-	err := os.WriteFile(filePath, []byte(content), 0644)
+func WriteFile(request *utils.Request) []byte {
+	fileName := strings.Replace(request.Path, "/files/", "", 1)
+	filePath := fmt.Sprintf("%s/%s", config.CONFIG[config.DIR], fileName)
+
+	err := os.WriteFile(filePath, []byte(request.Body), 0644)
 	// TODO: add support for create files inside directories
-	fmt.Println("Writing ... ", filePath, " with: ", content)
+	fmt.Println("Writing ... ", filePath, " with: ", request.Body)
 
 	if err != nil {
-		fmt.Printf("Error writing the file with the content: %s\n", content)
+		fmt.Printf("Error writing the file with the content: %s\n", request.Body)
 	}
 
 	return Response(nil, CREATED, nil)
