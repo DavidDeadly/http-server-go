@@ -14,9 +14,9 @@ func Files(request *utils.Request) []byte {
 	filePath := fmt.Sprintf("%s/%s", config.CONFIG[config.DIR], fileName)
 
 	switch {
-	case request.Method == GET:
+  case request.Method == utils.GET:
 		return readFile(filePath)
-	case request.Method == POST:
+  case request.Method == utils.POST:
 		return writeFile(filePath, request.Body)
 	}
 
@@ -34,7 +34,7 @@ func readFile(filePath string) []byte {
 		return Response(&body, OK, &contentType)
 	}
 
-	return NotFoundResponse()
+	return NotFoundResponse(nil)
 }
 
 func writeFile(filePath string, content string) []byte {

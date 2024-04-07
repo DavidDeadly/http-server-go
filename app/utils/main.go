@@ -7,6 +7,11 @@ import (
 
 type METHOD string
 
+const (
+	GET  METHOD = "GET"
+	POST METHOD = "POST"
+)
+
 type Request struct {
 	Method  METHOD
 	Path    string
