@@ -21,6 +21,9 @@ func StartServerOn(port string) net.Listener {
 
 	router.NotFoundHandler = handlers.NotFoundResponse
 
+	router.Get("^/$", func(request *utils.Request) []byte {
+    return handlers.Response(nil, handlers.OK, nil)
+  })
 	router.Get("/echo/*", handlers.Echo)
 	router.Get("/user-agent", handlers.UserAgent)
 	router.Get("/files", handlers.ReadFile)
